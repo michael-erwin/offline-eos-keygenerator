@@ -1,0 +1,225 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="js/eosjs-ecc.min.js"></script>
+  <link rel="stylesheet" href="css/bulma.min.css" />
+  <link rel="stylesheet" href="css/animate.min.css" />
+  <script src="js/vue.min.js"></script>
+  <script src="js/qrcode.min.js"></script>
+  <title>Offline EOS Keygen</title>
+</head>
+<body>
+  <div id="app">
+    <div id="key-pair-generator" class="card">
+      <header class="card-header">
+        <p class="card-header-title">
+          Offline EOS Keygen
+        </p>
+      </header>
+      <div class="card-content">
+        <div id="content" class="content">
+          <h1 class="print-entity">{{get_label}}</h1>
+          <table class="table is-bordered">
+            <tbody>
+              <tr>
+                <td style="text-align:center;vertical-align:middle;width:20px;background-color:#555;color:white;">
+                  <p style="height:253px;text-align:center;white-space:nowrap;writing-mode:vertical-rl;text-transform:uppercase;text-orientation:upright;">Private Key</p>
+                </td>
+                <td class="print-entity">&nbsp;</td>
+                <td style="text-align:center">
+                  <div class="qrcode" :class="{'outlined':!dirty}" id="pvt_key_qr"></div>
+                  <div class="print-entity" style="display:block">&nbsp;</div>
+                  <div class="qrcode-text" style="font-family:'Lucida Console',Monaco,monospace;font-size:13px;"
+                   @click="select_text">{{pvt_key}}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <hr class="print-entity" style="border:2px dashed #ddd;margin:25px" />
+          <table class="table is-bordered">
+            <tbody>
+              <tr>
+                <td style="text-align:center;vertical-align:middle;width:20px;background-color:#555;color:white;">
+                  <p style="height:253px;text-align:center;white-space:nowrap;writing-mode:vertical-rl;text-transform:uppercase;text-orientation:upright;">Public Key</p>
+                </td>
+                <td class="print-entity">&nbsp;</td>
+                <td style="text-align:center">
+                  <div class="qrcode" :class="{'outlined':!dirty}" id="pub_key_qr"></div>
+                  <div class="print-entity" style="display:block">&nbsp;</div>
+                  <div class="qrcode-text" style="font-family:'Lucida Console',Monaco,monospace;font-size:13px;"
+                   @click="select_text">{{pub_key}}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <footer class="card-footer">
+        <button class="card-footer-button button" :disabled="generating"
+         @click="begin_generate">Generate</button>
+        <button class="card-footer-button button" :disabled="generating||dirty===false"
+         @click="begin_print">Print</button>
+      </footer>
+    </div>
+    <div class="modal" :class="{'is-active':print_label_modal.active}">
+      <div class="modal-background"></div>
+      <div class="modal-card animated bounceInDown">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Print Label</p>
+        </header>
+        <section class="modal-card-body">
+          <p>If you want a custom label type it here otherwise leave this blank.</p>
+          <p>&nbsp;</p>
+          <div class="field is-horizontal">
+            <div class="field-label is-normal">
+              <label class="label">Label</label>
+            </div>
+            <div class="field-body">
+              <div class="field">
+                <p class="control">
+                  <input class="input" type="text" :placeholder="print_label_default"
+                   v-model="print_label" />
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-success" @click="print">Print Now</button>
+          <button class="button" @click="print_label_modal.active=false">Cancel</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+  
+  <style type="text/css">
+    #key-pair-generator {
+      width: 540px;
+      margin: 15px auto;
+    }
+    .card-footer-button {
+      align-items: center;
+      display: flex;
+      flex-basis: 0;
+      flex-grow: 1;
+      flex-shrink: 0;
+      justify-content: center;
+      border-style: none;
+      border-left-style: solid;
+    }
+    .card-footer-button:first-child {
+      border-left-style: none !important;
+    }
+    .card-footer-button.button {
+      border-radius: 0;
+    }
+    .print-entity {
+      display: none !important;
+    }
+    .qrcode {
+      display: inline-block;
+      width: 200px;
+      height: 200px;
+      margin: 12px;
+    }
+    .qrcode.outlined {
+      line-height: 200px;
+      text-align: center;
+      border: 2px dashed #ddd;
+    }
+    .qrcode.outlined:after {
+      display: inline-block;
+      content: 'QR Code';
+      color: #ccc;
+    }
+    .qrcode-text {
+      font-family: monospace;
+      min-height: 15px;
+    }
+  </style>
+
+  <script type="text/javascript">
+    var app = new Vue({
+      el: '#app',
+      data: {
+        dirty: false,
+        generating: false,
+        pvt_key_qr: 'pvt_key_qr',
+        pub_key_qr: 'pub_key_qr',
+        pvt_key: '(click generate to render)',
+        pub_key: '(click generate to render)',
+        print_label: '',
+        print_label_default: 'EOS Key-Pair',
+        print_label_modal: {
+          active: false,
+          value: ''
+        }
+      },
+      computed: {
+        get_label() {
+          if (this.print_label.length > 0) return this.print_label;
+          return this.print_label_default;
+        }
+      },
+      methods: {
+        begin_generate() {
+          this.pvt_key = 'generating key...';
+          this.pub_key = 'generating key...';
+          this.generating = true;
+          document.getElementById(this.pvt_key_qr).innerHTML = '';
+          document.getElementById(this.pub_key_qr).innerHTML = '';
+          setTimeout(this.generate, 50);
+        },
+        generate() {
+          eosjs_ecc.randomKey().then((pvt_key)=>
+          {
+            var pub_key = eosjs_ecc.privateToPublic(pvt_key);
+            this.dirty = true;
+            this.pvt_key = pvt_key;
+            this.pub_key = pub_key;
+            this.render_qr(this.pvt_key_qr, pvt_key);
+            this.render_qr(this.pub_key_qr, pub_key);
+            this.generating = false;
+          });
+        },
+        begin_print() {
+          this.print_label = '';
+          this.print_label_modal.active = true;
+        },
+        print() {
+          this.print_label_modal.active = false;
+          setTimeout(()=>{
+            const prtContent = document.getElementById("content");
+            const WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
+            WinPrint.document.write(prtContent.innerHTML);
+            WinPrint.document.close();
+            WinPrint.focus();
+            WinPrint.print();
+            WinPrint.close();
+          }, 50);
+        },
+        render_qr(id, text) {
+          const qrcode = new QRCode(id, { width: 200, height: 200 });
+          qrcode.makeCode(text);
+        },
+        select_text(event) {
+          const node = event.target;
+          if (document.body.createTextRange) {
+              const range = document.body.createTextRange();
+              range.moveToElementText(node);
+              range.select();
+          } else if (window.getSelection) {
+              const selection = window.getSelection();
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              selection.removeAllRanges();
+              selection.addRange(range);
+          } else {
+              console.warn("Could not select text in node: Unsupported browser.");
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
